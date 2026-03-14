@@ -3,55 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>班级宠物养成系统 - 稳定增强版</title>
+    <title>班级宠物系统 V6.0 - 兼容增强版</title>
     
-    <!-- 使用国内最稳定的 Staticfile 镜像 (七牛云提供) -->
-    <script src="https://cdn.staticfile.org/vue/3.2.31/vue.global.prod.min.js"></script>
-    <script src="https://cdn.staticfile.org/tailwind-css/2.2.19/tailwind.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.staticfile.org/font-awesome/6.0.0/css/all.min.css">
+    <!-- 使用国内极速 BootCDN 资源 -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/vue/3.2.47/vue.global.prod.min.js"></script>
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.bootcdn.net/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
 
     <style>
-        body { background: #f1f5f9; margin: 0; font-family: sans-serif; }
-        .glass-nav { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(8px); }
-        .pet-photo { object-fit: cover; border-radius: 1.5rem; width: 100%; height: 100%; }
-        /* 避免白屏：如果Vue还没加载，显示这个 */
-        #loading-hint { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: white; z-index: 9999; }
+        [v-cloak] { display: none !important; }
+        body { background-color: #f8fafc; }
+        .pet-card { transition: all 0.3s ease; }
+        .pet-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .pet-img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 1rem; }
+        /* 加载屏样式 */
+        #loading-screen { position: fixed; inset: 0; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #4f46e5; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .force-btn { margin-top: 20px; padding: 10px 20px; background: #eeeffe; color: #4f46e5; border-radius: 8px; font-weight: bold; display: none; }
     </style>
 </head>
 <body>
 
-    <!-- 加载提示：Vue启动后会自动消失 -->
-    <div id="loading-hint">
-        <div style="text-align: center;">
-            <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #4f46e5;"></i>
-            <p style="margin-top: 10px; font-weight: bold; color: #64748b;">系统启动中，请稍候...</p>
-        </div>
+    <!-- 加载屏幕 -->
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <p style="margin-top: 15px; color: #64748b; font-weight: bold;">班级宠物系统加载中...</p>
+        <!-- 如果5秒还没加载完，显示这个按钮 -->
+        <button id="force-start" class="force-btn" onclick="document.getElementById('loading-screen').style.display='none'">强制进入界面</button>
     </div>
 
-    <div id="app" class="p-4 md:p-8" style="display: none;" :style="{ display: 'block' }">
-        
-        <!-- 界面 1：班级选择 -->
-        <div v-if="!currentClass" class="max-w-xl mx-auto mt-10">
-            <div class="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
-                <h1 class="text-2xl font-bold mb-6 text-gray-800"><i class="fas fa-home text-indigo-500 mr-2"></i>我的班级</h1>
-                
-                <div v-if="classes.length > 0" class="space-y-3 mb-8">
-                    <div v-for="(cls, index) in classes" :key="index" 
-                         @click="selectClass(cls)"
-                         class="flex justify-between items-center p-5 bg-gray-50 hover:bg-indigo-50 rounded-2xl cursor-pointer transition-all border border-transparent hover:border-indigo-200">
-                        <div class="flex items-center gap-4">
-                            <i class="fas fa-users text-indigo-400"></i>
-                            <span class="font-bold text-gray-700">{{ cls.name }}</span>
-                        </div>
-                        <button @click.stop="deleteClass(index)" class="text-gray-300 hover:text-red-500 p-2">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
+    <div id="app" v-cloak class="min-h-screen p-4 md:p-8">
+        <!-- 页面顶部 -->
+        <div class="max-w-6xl mx-auto">
+            
+            <!-- 1. 班级选择界面 -->
+            <div v-if="!currentClass" class="max-w-md mx-auto mt-10 bg-white p-8 rounded-3xl shadow-lg border border-gray-100">
+                <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">🏫 我的班级</h1>
+                <div v-for="(cls, index) in classes" :key="index" 
+                     @click="currentClass = cls"
+                     class="flex justify-between items-center p-4 mb-3 bg-gray-50 hover:bg-indigo-50 rounded-2xl cursor-pointer border border-transparent hover:border-indigo-200 transition">
+                    <span class="font-bold text-gray-700 font-lg"><i class="fas fa-bookmark mr-2 text-indigo-400"></i>{{ cls.name }}</span>
+                    <button @click.stop="deleteClass(index)" class="text-gray-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                </div>
+                <div class="mt-6 pt-6 border-t">
+                    <div class="flex gap-2">
+                        <input v-model="newClassName" type="text" placeholder="输入班级名" class="flex-1 p-3 border rounded-xl outline-none focus:ring-2 ring-indigo-400">
+                        <button @click="createClass" class="bg-indigo-600 text-white px-5 rounded-xl font-bold">创建</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. 班级管理界面 -->
+            <div v-else>
+                <div class="flex flex-wrap justify-between items-center mb-8 bg-white p-4 rounded-2xl shadow-sm">
+                    <div class="flex items-center gap-4">
+                        <button @click="currentClass = null" class="text-gray-400 hover:text-indigo-600"><i class="fas fa-arrow-left text-xl"></i></button>
+                        <h1 class="text-xl font-bold text-gray-800">{{ currentClass.name }}</h1>
+                    </div>
+                    <div class="flex gap-2">
+                        <button @click="showAdd = true" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold">录入学生</button>
+                        <button @click="batchAddXp" class="bg-amber-500 text-white px-4 py-2 rounded-xl text-sm font-bold">集体奖励</button>
                     </div>
                 </div>
 
-                <div class="pt-6 border-t">
-                    <p class="text-sm text-gray-400 mb-3 font-bold">新建班级</p>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                    <div v-for="student in currentClass.students" :key="student.id" class="pet-card bg-white p-4 rounded-3xl shadow-sm border border-gray-100 relative group text-center">
+                        <!-- 勋章 -->
+                        <div v-if="student.badges > 0" class="absolute -top-2 -right-2 bg-amber-500 text-white w-8 h-8 rounded-full flex items-center justify-center border-2 border-white z-10">
+                            <i class="fas fa-medal"></i>
+                        </div>
+                        
+                        <div @click="openAdopt(student)" class="cursor-pointer">
+                            <div v-if="!student.petImg" class="w-full aspect-square bg-gray-50 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-gray-200">
+                                <i class="fas fa-paw text-gray-200 text-2xl mb-1"></i>
+                                <span class="text-indigo-400 text-[10px] font-bold">选择宠物</span>
+                            </div>
+                            <img v-else :src="student.petImg" class="pet-img shadow-inner">
+                        </div>
+
+                        <h3 class="font-bold text-gray-800 mt-3">{{ student.name }}</h3>
+                        <div class="text-[10px] text-indigo-500 font-bold mb-2">等级 {{ student.level }}</div>
+                        
+                        <div class="bg-gray-100 rounded-full h-1.5 mb-4 overflow-hidden">
+                            <div class="bg-indigo-500 h-full" :style="{ width: (student.xp / (student.level * 10) * 100) + '%' }"></div>
+                        </div>
+
+                        <div class="flex gap-1">
+                            <button @click="updateXp(student, 2)" class="flex-1 bg-green-500 text-white text-[10px] py-2 rounded-lg font-bold">+2</button>
+                            <button @click="updateXp(student, -1)" class="flex-1 bg-gray-100 text-gray-400 text-[10px] py-2 rounded-lg font-bold">-1</button>
+                        </div>
+                        <button @click="deleteStudent(student)" class="absolute top-1 left-1 opacity-0 group-hover:opacity-100 text-red-200"><i class="fas fa-times-circle"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 弹窗：录入 -->
+            <div v-if="showAdd" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div class="bg-white p-6 rounded-3xl w-full max-w-sm">
+                    <h2 class="text-xl font-bold mb-4">批量录入学生</h2>
+                    <textarea v-model="inputNames" placeholder="每行一个名字" class="w-full h-40 border p-4 rounded-xl mb-4 focus:ring-2 ring-indigo-400 outline-none"></textarea>
                     <div class="flex gap-2">
-                        <input v-model="newClassName" @keyup.enter="createClass" type="text" placeholder="输入班级名" 
-                               class="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <button @click="createClass" class="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700">创建</butt
+                        <button @click="addStudents" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">确定导入</button>
+                        <button @click="showAdd = false" class="flex-1 bg-gray-100 py-3 rounded-xl font-bold">取消</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 弹窗：领养 -->
+            <div v-if="showAdopt" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+                <div class="bg-white p-8 rounded-3xl w-full max-w-3xl">
+                    <h2 class="text-xl font-bold text-center mb-6 text-gray-800">选择写实小伙伴</h2>
+                    <div class="grid grid-cols-3 sm:grid-cols-5 gap-4 mb-6 max-h-96 overflow-y-auto pr-2">
+                        <div v-for="pet in petLib" @click="confirmAdopt(pet.img)" class="cursor-pointer group">
+                            <div class="aspect-square rounded-2xl overflow-hidden border-4 border-transparent hover:border-indigo-500 transition-all">
+                                <img :src="pet.img" class="w-full h-full object-cover">
+                            </div>
+                            <p class="text-[10px] text-center mt-1 text-gray-400 font-bold">{{ pet.name }}</p>
+                        </div>
+                    </div>
+                    <div class="text-center"><button @click="showAdopt = false" class="px-8 py-2 bg-gray-100 rounded-xl font-bold">取消</button></div>
+                </div>
+            </div>
+
+            <div v-if="toast" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-2 rounded-full z-[100] text-sm font-bold shadow-2xl">{{ toast }}</div>
+        </div>
+    </div>
+
+    <script>
+        // 脚本加载监控
+        setTimeout(function() {
+            var btn = document.getElementById('force-start');
+            if (btn) btn.style.display = 'block';
+        }, 5000);
+
+        const { createApp, ref, onMounted, watch } = Vue;
+
+        createApp({
+            setup() {
+                const classes = ref([]);
+                const currentClass = ref(null);
+                const newClassName = ref('');
+                const showAdd = ref(false);
+                const showAdopt = ref(false);
+                const selectingStudent = ref(null);
+                const inputNames = ref('');
+                const toast = ref('');
+
+                const petLib = [
+                    { name: '金毛', img: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=200&h=200&fit=crop' },
+                    { name: '布偶猫', img: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&h=200&fit=crop' },
+                    { name: '兔子', img: 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=200&h=200&fit=crop' },
+                    { name: '仓鼠', img: 'https://images.unsplash.com/photo-1548767797-d8c844163c4c?w=200&h=200&fit=crop' },
+                    { name: '鹦鹉', img: 'https://images.unsplash.com/photo-1552728089-57bdde30ebe3?w=200&h=200&fit=crop' },
+                    { name: '乌龟', img: 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?w=200&h=200&fit=crop' },
+                    { name: '柯基', img: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=200&h=200&fit=crop' },
+                    { name: '熊猫', img: 'https://images.unsplash.com/photo-1564349683136-77e08bef1ed1?w=200&h=200&fit=crop' },
+                    { name: '梅花鹿', img: 'https://images.unsplash.com/photo-1484406566174-9da000fda645?w=200&h=200&fit=crop' },
+                    { name: '狐狸', img: 'https://images.unsplash.com/photo-1516934024742-b461fba47600?w=200&h=200&fit=crop' }
+                ];
+
+                onMounted(() => {
+                    const saved = localStorage.getItem('class_pet_final_v6');
+                    if (saved) classes.value = JSON.parse(saved);
+                    // 加载完成后隐藏加载屏
+                    const screen = document.getElementById('loading-screen');
+                    if(screen) screen.style.display = 'none';
+                });
+
+                watch(classes, (v) => localStorage.setItem('class_pet_final_v6', JSON.stringify(v)), { deep: true });
+
+                const createClass = () => {
+                    if (!newClassName.value.trim()) return;
+                    classes.value.push({ name: newClassName.value, students: [] });
+                    newClassName.value = '';
+                    showToast('班级创建成功');
+                };
+
+                const deleteClass = (idx) => { if (confirm('确定删除吗？')) classes.value.splice(idx, 1); };
+
+                const addStudents = () => {
+                    const names = inputNames.value.split('\n').filter(n => n.trim());
+                    names.forEach(n => {
+                        currentClass.value.students.push({
+                            id: Date.now() + Math.random(),
+                            name: n.trim(), level: 1, xp: 0, badges: 0, petImg: ''
+                        });
+                    });
+                    inputNames.value = '';
+                    showAdd.value = false;
+                };
+
+                const openAdopt = (s) => { selectingStudent.value = s; showAdopt.value = true; };
+                const confirmAdopt = (url) => { selectingStudent.value.petImg = url; showAdopt.value = false; };
+
+                const updateXp = (s, amt) => {
+                    if (!s.petImg) return showToast('请先领养宠物');
+                    s.xp += amt;
+                    if (s.xp < 0) s.xp = 0;
+                    if (s.xp >= s.level * 10) {
+                        s.level++; s.xp = 0;
+                        if (s.level % 5 === 0) s.badges++;
+                        showToast(s.name + ' 升级了！');
+                    }
+                };
+
+                const batchAddXp = () => { currentClass.value.students.forEach(s => { if(s.petImg) updateXp(s, 1) }); showToast('发放奖励完成'); };
+                const deleteStudent = (s) => { const idx = currentClass.value.students.indexOf(s); currentClass.value.students.splice(idx, 1); };
+
+                const showToast = (m) => { toast.value = m; setTimeout(() => toast.value = '', 3000); };
+
+                return {
+                    classes, currentClass, newClassName, showAdd, showAdopt, selectingStudent, inputNames, toast, petLib,
+                    createClass, deleteClass, addStudents, openAdopt, confirmAdopt, updateXp, batchAddXp, deleteStudent
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
