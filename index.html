@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OURTEACH 班级宠物养成系统</title>
+    <!-- 引入 Vue 3 和 Tailwind CSS -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .pet-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .pet-card:hover { transform: translateY(-5px); }
+        .progress-bar { transition: width 0.5s ease-in-out; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+    <div id="app" class="p-4 md:p-8">
+        <!-- 顶部导航 -->
+        <header class="flex flex-wrap justify-between items-center mb-8 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex items-center gap-3">
+                <div class="bg-indigo-600 text-white p-2 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                </div>
+                <h1 class="text-xl font-bold text-slate-800">班级宠物养成系统</h1>
+            </div>
+            
+            <div class="flex gap-2 mt-4 md:mt-0">
+                <button @click="showAddStudent = true" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm transition font-medium">+ 添加学生</button>
+                <button @click="batchFeeding" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-sm transition font-medium">批量喂养</button>
+                <button @click="showShop = true" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-xl text-sm transition font-medium">兑换商店</button>
+                <button @click="clearData" class="text-slate-400 hover:text-red-500 p-2 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- 学生列表网格 -->
+        <div v-if="students.length === 0" class="text-center py-20">
+            <div class="text-6xl mb-4">🥚</div>
+            <p class="text-slate-500">还没有学生，请点击右上角添加学生</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            <div v-for="student in students" :key="student.id" class="pet-card bg-white rounded-3xl p-5 shadow-sm border border-slate-100 relative overflow-hidden">
+                <!-- 满级标记 -->
+                <div v-if="student.level >= 8" class="absolute top-2 right-2 bg-amber-100 text-amber-600 text-[10px] px-2 py-1 rounded-full font-bold">MAX</div>
+                
+                <!-- 宠物显示区域 -->
+                <div class="text-center mb-4 pt-4">
+                    <div class="text-6xl mb-2 drop-shadow-md cursor-pointer" @click="handlePetClick(student)">
+                        {{ getPetStage(student) }}
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg">{{ student.name }}</h3>
+                    <p class="text-xs text-slate-400">等级: {{ student.level }} | 勋章: {{ student.badges }}</p>
+                </div>
+
+                <!-- 经验条 -->
+                <div class="mb-4">
+                    <div class="flex justify-between text-[10px] text-slate-400 mb-1 font-medium">
+                        <span>经验值 (XP)</span>
+                        <span>{{ student.xp }}/{{ getLevelThreshold(student.level) }}</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2">
+                        <div class="progress-bar bg-indigo-500 h-2 rounded-full" :style="{ width: (student.xp / getLevelThreshold(student.level) * 100) + '%' }"></div>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button @click="updateXp(student, 2)" class="bg-green-50 hover:bg-green-100 text-green-600 py-2 rounded-xl text-xs font-bold transition">表现好 +2</button>
+                    <button @click="updateXp(student, -1)" class="bg-red-50 hover:bg-red-100 text-red-600 py-2 rounded-xl text-xs font-bold transition">迟到/未交 -1</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 弹窗：添加学生 -->
+        <div v-if="showAddStudent" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl">
+                <h2 class="text-xl font-bold mb-4">录入新同学</h2>
+                <textarea v-model="newStudentNames" placeholder="请输入学生姓名，多个请用换行或空格隔开..." class="w-full h-32 border border-slate-200 rounded-2xl p-3 mb-4 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+                <div class="flex gap-3">
+                    <button @click="addStudents" class="flex-1 bg-indigo-600 text-white py-3 rounded-2xl font-bold">确认导入</button>
+                    <button @click="showAddStudent = false" class="flex-1 bg-slate-100 text-slate-600 py-3 rounded-2xl font-bold">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 弹窗：兑换商店 -->
+        <div v-if="showShop" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-3xl p-6 w-full max-w-2xl shadow-2xl max-h-[80vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-slate-800 font-bold">勋章兑换商店</h2>
+                    <button @click="showShop = false" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div v-for="item in shopItems" :key="item.name" class="border border-slate-100 bg-slate-50 p-4 rounded-2xl flex justify-between items-center">
+                        <div>
+                            <div class="font-bold text-slate-800">{{ item.name }}</div>
+                            <div class="text-sm text-slate-500">消耗 {{ item.cost }} 枚勋章</div>
+                        </div>
+                        <button @click="exchange(item)" class="bg-white text-rose-500 border border-rose-200 px-4 py-2 rounded-xl text-sm font-bold hover:bg-rose-500 hover:text-white transition">兑换</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 全局通知提示 -->
+        <div v-if="toast.show" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-2xl shadow-xl z-[100] transition-all">
+            {{ toast.msg }}
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, watch } = Vue;
+
+        createApp({
+            setup() {
+                const students = ref([]);
+                const showAddStudent = ref(false);
+                const showShop = ref(false);
+                const newStudentNames = ref('');
+                const toast = ref({ show: false, msg: '' });
+
+                // 宠物进化形态 (从蛋到超级形态)
+                const stages = ['🥚', '🐣', '🐥', '🐱', '🐈', '🐯', '🐆', '🦁'];
+                
+                // 商店物品
+                const shopItems = [
+                    { name: '免作业卡一张', cost: 1 },
+                    { name: '班级电影票', cost: 3 },
+                    { name: '精美文具套装', cost: 2 },
+                    { name: '当一天小老师', cost: 5 }
+                ];
+
+                // 初始化：从本地存储读取
+                onMounted(() => {
+                    const saved = localStorage.getItem('class_pet_data');
+                    if (saved) {
+                        students.value = JSON.parse(saved);
+                    }
+                });
+
+                // 监听数据变化并自动保存
+                watch(students, (newVal) => {
+                    localStorage.setItem('class_pet_data', JSON.stringify(newVal));
+                }, { deep: true });
+
+                // 计算当前等级需要的经验值 (等级越高 升级越难)
+                const getLevelThreshold = (level) => {
+                    return level * 10;
+                };
+
+                // 获取宠物当前外观
+                const getPetStage = (student) => {
+                    const index = Math.min(student.level - 1, stages.length - 1);
+                    return stages[index];
+                };
+
+                // 添加学生逻辑
+                const addStudents = () => {
+                    const names = newStudentNames.value.split(/[\s\n,，]+/).filter(n => n.trim());
+                    names.forEach(name => {
+                        students.value.push({
+                            id: Date.now() + Math.random(),
+                            name: name,
+                            level: 1,
+                            xp: 0,
+                            badges: 0
+                        });
+                    });
+                    newStudentNames.value = '';
+                    showAddStudent.value = false;
+                    showToast(`成功录入 ${names.length} 名学生`);
+                };
+
+                // 更新经验与升级逻辑
+                const updateXp = (student, amount) => {
+                    student.xp += amount;
+                    
+                    // 防止XP为负数
+                    if (student.xp < 0) student.xp = 0;
+
+                    // 升级检测
+                    const threshold = getLevelThreshold(student.level);
+                    if (student.xp >= threshold) {
+                        if (student.level < 8) {
+                            student.level++;
+                            student.xp = 0;
+                            showToast(`恭喜！${student.name} 的宠物进化了！`);
+                        } else {
+                            // 满级后重置为1级并奖励勋章
+                            student.badges++;
+                            student.level = 1;
+                            student.xp = 0;
+                            showToast(`${student.name} 的宠物满级毕业，获得 1 枚勋章！`);
+                        }
+                    }
+                };
+
+                // 批量操作
+                const batchFeeding = () => {
+                    if (students.value.length === 0) return;
+                    students.value.forEach(s => updateXp(s, 2));
+                    showToast('全班加分成功！');
+                };
+
+                // 兑换逻辑
+                const exchange = (item) => {
+                    const canExchange = students.value.some(s => s.badges >= item.cost);
+                    if (canExchange) {
+                        showToast('兑换成功！请在列表中选择一名学生扣除勋章（逻辑演示）');
+                        // 实际开发中这里可以弹出学生选择器，此处简化
+                    } else {
+                        showToast('暂无同学拥有足够勋章');
+                    }
+                };
+
+                const showToast = (msg) => {
+                    toast.value = { show: true, msg: msg };
+                    setTimeout(() => toast.value.show = false, 3000);
+                };
+
+                const clearData = () => {
+                    if (confirm('确定要清空所有学生数据吗？此操作不可恢复。')) {
+                        students.value = [];
+                        localStorage.removeItem('class_pet_data');
+                    }
+                };
+
+                return {
+                    students, showAddStudent, showShop, newStudentNames, toast,
+                    shopItems, getLevelThreshold, getPetStage, addStudents, 
+                    updateXp, batchFeeding, exchange, clearData
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
